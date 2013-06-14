@@ -51,11 +51,12 @@ EOF
 # additionally, it will figure out if they have dependencies, and install those too.
 bundle install
 
-# First, I want a model of a mobile device.  A mobile device has push tokens (cool).
-cat >app/models/mobiledevice.rb <<EOF
+# First, I want a model of a mobile device.  A mobile device can send us a push token.
+cat >app/models/mobile_device.rb <<EOF
 class MobileDevice < ActiveRecord::Base
   fields do
   	platform :string
+    push_token :string
   	timestamps
   end
 
@@ -83,19 +84,6 @@ class User < ActiveRecord::Base
 	end
 end
 EOF
-# A push token is really just a string
-cat >app/models/pushtoken.rb <<EOF
-class PushToken < ActiveRecord::Base
-  fields do
-  	token :string
-  	timestamps
-  end
-
-  attr_accessible :token
-
-  belongs_to :MobileDevice
-end
-EOF
 
 # I'm going to use a tool called HoboFields to automatically create the database schema from the models.
 # You might have noticed the "fields do" section above in each model.
@@ -110,8 +98,46 @@ rails generate hobo:migration -g -n
 bundle exec rake db:migrate
 
 # We've got models and we've got a database but we have no controllers!  Quick, add some endpoints.
+cat >app/controllers/mobile_devices_controller.rb <<EOF
+class MobileDevicesController < ApplicationController
+  # GET /mobiledevices
+  # GET /mobiledevices.json
+  def index
+    @mobile_devices = MobileDevice.all
 
+    render json: @mobile_devices
+  end
 
+  # GET /mobiledevices/1
+  # GET /mobiledevices/1.json
+  def show
+    @mobile_device = MobileDevice.find(params[:id])
+
+    render json: @mobile_device
+  end
+end
+EOF
+
+# And we need a route for this
+cat >config/routes.rb <<EOF
+${APP_NAME}::Application.routes.draw do
+  resources :mobiledevices, :controller => "MobileDevices" do
+    collection do
+      get 'index'
+    end
+    member do
+      get 'show'
+    end
+  end
+EOF
+
+# We're all done adding routes
+cat >>config/routes.rb <<EOF
+end
+EOF
+
+# We can confirm that we've hooked up our controllers and routed to them as follows:
+bundle exec rake routes
 
 # Now let's run this thing.
 rails server
